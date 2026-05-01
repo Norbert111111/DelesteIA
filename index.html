@@ -3,43 +3,120 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Dashboard IoT - 4 Départs</title>
+<title>Smart Grid - Thème Clair</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
+
+/* ===== PALETTE CLAIRE PROFESSIONNELLE ===== */
+:root {
+    --green: #3d9605;
+    --red: #dc2626;
+    --orange: #d97706;
+    --blue: #2563eb;
+    --bg: #d9e0e8;
+    --card: #f4ecec;
+    --text: #1e293b;
+}
+
+/* ===== BASE ===== */
 body {
     margin: 0;
-    font-family: Arial;
-    background: #0b1220;
-    color: white;
+    font-family: "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
 }
-.wrap { padding: 10px; }
-.card {
-    background: #111827;
+
+.wrap {
     padding: 15px;
-    border-radius: 10px;
-    margin-bottom: 10px;
 }
+
+/* ===== TITRE ===== */
+h1 {
+    text-align: center;
+    color: var(--blue);
+}
+
+/* ===== CARD ===== */
+.card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    border-left: 5px solid var(--blue);
+    transition: 0.3s;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+/* ETATS */
+.normalCard { border-left: 5px solid var(--green); }
+.warningCard { border-left: 5px solid var(--orange); }
+.dangerCard { border-left: 5px solid var(--red); }
+
+/* ANIMATION DANGER */
+.dangerCard {
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 rgba(220,38,38,0.2); }
+    50% { box-shadow: 0 0 15px rgba(220,38,38,0.4); }
+    100% { box-shadow: 0 0 0 rgba(220,38,38,0.2); }
+}
+
+/* KPI */
 .kpi-row {
     display: flex;
     justify-content: space-between;
-    margin: 8px 0;
+    margin: 10px 0;
 }
+
+/* VALEURS */
+.value {
+    font-weight: bold;
+    transition: 0.3s;
+}
+
+.normal { color: var(--green); }
+.medium { color: var(--orange); }
+.high { color: var(--red); }
+
+/* ===== BOUTONS ===== */
 .kpi-button {
-    padding: 8px 15px;
+    padding: 8px 18px;
+    border-radius: 20px;
     border: none;
-    border-radius: 6px;
     cursor: pointer;
     font-weight: bold;
+    transition: 0.2s;
 }
-.on { background: #00c2a8; }
-.off { background: #ff4d4d; }
 
-h1 {
-    text-align: center;
-    color: #00c2a8;
+/* ON */
+.on {
+    background: var(--green);
+    color: white;
 }
+
+/* OFF */
+.off {
+    background: var(--red);
+    color: white;
+}
+
+.kpi-button:active {
+    transform: scale(0.9);
+}
+
+/* GRAPH */
+canvas {
+    max-height: 250px;
+}
+
 </style>
 </head>
 
@@ -47,16 +124,16 @@ h1 {
 
 <div class="wrap">
 
-<h1>SMART GRID - 4 DÉPARTS</h1>
+<h1>SMART CABINE ET DELESTAGE SMART</h1>
 
-<div class="card">
-    <div class="kpi-row"><span>Tension :</span><span id="voltVal">-- V</span></div>
-    <div class="kpi-row"><span>Courant :</span><span id="curVal">-- A</span></div>
-    <div class="kpi-row"><span>Puissance :</span><span id="powerVal">-- W</span></div>
+<div class="card normalCard" id="mainCard">
+    <div class="kpi-row"><span>Tension :</span><span id="voltVal" class="value normal">-- V</span></div>
+    <div class="kpi-row"><span>Courant :</span><span id="curVal" class="value normal">-- A</span></div>
+    <div class="kpi-row"><span>Puissance :</span><span id="powerVal" class="value normal">-- W</span></div>
 </div>
 
 <div class="card">
-    <h3>Commandes Départs</h3>
+    <h3 style="color: var(--blue)">Commandes Départs</h3>
     <div class="kpi-row">Départ 1 <button id="btn1" class="kpi-button off">OFF</button></div>
     <div class="kpi-row">Départ 2 <button id="btn2" class="kpi-button off">OFF</button></div>
     <div class="kpi-row">Départ 3 <button id="btn3" class="kpi-button off">OFF</button></div>
@@ -73,7 +150,6 @@ h1 {
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-app.js";
 import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-database.js";
 
-// 🔥 CONFIG FIREBASE
 const firebaseConfig = {
     apiKey: "AIzaSy...",
     authDomain: "maison-iot-b0dd6.firebaseapp.com",
@@ -88,6 +164,7 @@ const db = getDatabase(app);
 const voltVal = document.getElementById("voltVal");
 const curVal = document.getElementById("curVal");
 const powerVal = document.getElementById("powerVal");
+const mainCard = document.getElementById("mainCard");
 
 const btn1 = document.getElementById("btn1");
 const btn2 = document.getElementById("btn2");
@@ -95,56 +172,55 @@ const btn3 = document.getElementById("btn3");
 const btn4 = document.getElementById("btn4");
 
 // GRAPH
-const ctx = document.getElementById("chart").getContext("2d");
-const chart = new Chart(ctx, {
+const chart = new Chart(document.getElementById("chart"), {
     type: "line",
     data: {
         labels: [],
         datasets: [{
             label: "Puissance",
             data: [],
-            borderColor: "#00c2a8"
+            borderColor: "#2563eb",
+            backgroundColor: "rgba(37,99,235,0.1)",
+            fill: true,
+            tension: 0.4
         }]
     }
 });
 
-// ---------------- VARIABLES GLOBALES ----------------
+// VARIABLES
 let currentCommandes = {};
 let lastDelestageTime = 0;
 
-const SEUIL = 1000; // ⚡ seuil de puissance (W)
-const DELAY = 5000; // ⏱️ délai entre délestages (ms)
+const SEUIL = 1000;
+const DELAY = 5000;
 
-// ---------------- DELESTAGE INTELLIGENT ----------------
+// ANIMATION
+function animate(el, val) {
+    el.style.opacity = 0;
+    setTimeout(() => {
+        el.innerText = val;
+        el.style.opacity = 1;
+    }, 150);
+}
+
+// DELESTAGE (inchangé)
 function delestageAuto(power) {
-
     const now = Date.now();
-
     if (power <= SEUIL) return;
-
-    // éviter coupures trop rapides
     if (now - lastDelestageTime < DELAY) return;
 
-    const ordre = [
-        { key: "Comm4", btn: btn4 },
-        { key: "Comm3", btn: btn3 },
-        { key: "Comm2", btn: btn2 },
-        { key: "Comm1", btn: btn1 }
-    ];
+    const ordre = ["Comm4","Comm3","Comm2","Comm1"];
 
-    console.log("⚠️ Surcharge détectée :", power);
-
-    for (let dep of ordre) {
-        if (currentCommandes[dep.key] == 1) {
-            console.log("❌ Coupure :", dep.key);
-            set(ref(db, "commande/" + dep.key), 0);
+    for (let key of ordre) {
+        if (currentCommandes[key] == 1) {
+            set(ref(db, "commande/" + key), 0);
             lastDelestageTime = now;
             break;
         }
     }
 }
 
-// ---------------- REALTIME DATA ----------------
+// REALTIME
 onValue(ref(db, "compteur/realtime"), snap => {
     const d = snap.val();
     if (!d) return;
@@ -153,11 +229,24 @@ onValue(ref(db, "compteur/realtime"), snap => {
     let volt = d.tension || 0;
     let power = cur * volt;
 
-    voltVal.innerText = volt.toFixed(2) + " V";
-    curVal.innerText = cur.toFixed(2) + " A";
-    powerVal.innerText = power.toFixed(2) + " W";
+    animate(voltVal, volt.toFixed(2) + " V");
+    animate(curVal, cur.toFixed(2) + " A");
+    animate(powerVal, power.toFixed(2) + " W");
 
-    // GRAPH
+    // COULEURS INTELLIGENTES
+    if (power > SEUIL) {
+        mainCard.className = "card dangerCard";
+        powerVal.className = "value high";
+    }
+    else if (power > SEUIL * 0.7) {
+        mainCard.className = "card warningCard";
+        powerVal.className = "value medium";
+    }
+    else {
+        mainCard.className = "card normalCard";
+        powerVal.className = "value normal";
+    }
+
     chart.data.labels.push(new Date().toLocaleTimeString());
     chart.data.datasets[0].data.push(power);
 
@@ -168,19 +257,17 @@ onValue(ref(db, "compteur/realtime"), snap => {
 
     chart.update();
 
-    // 🔥 ENVOI données
     set(ref(db, "deleste"), {
         courant: cur,
         tension: volt,
         puissance: power,
-        consommation: (power / 1000)
+        consommation: power / 1000
     });
 
-    // 🔥 DELESTAGE
     delestageAuto(power);
 });
 
-// ---------------- COMMANDES ----------------
+// COMMANDES (inchangé)
 function toggle(btn, path) {
     const isOn = btn.classList.contains("on");
     set(ref(db, path), isOn ? 0 : 1);
@@ -191,7 +278,7 @@ btn2.onclick = () => toggle(btn2, "commande/Comm2");
 btn3.onclick = () => toggle(btn3, "commande/Comm3");
 btn4.onclick = () => toggle(btn4, "commande/Comm4");
 
-// ---------------- SYNC COMMANDES ----------------
+// SYNC
 onValue(ref(db, "commande"), snap => {
     const c = snap.val();
     if (!c) return;
