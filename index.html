@@ -221,13 +221,15 @@ function delestageAuto(power) {
 }
 
 // REALTIME
-onValue(ref(db, "compteur/realtime"), snap => {
+onValue(ref(db, "deleste"), snap => {
+
     const d = snap.val();
+
     if (!d) return;
 
     let cur = d.courant || 0;
     let volt = d.tension || 0;
-    let power = cur * volt;
+    let power = d.puissance || 0;
 
     animate(voltVal, volt.toFixed(2) + " V");
     animate(curVal, cur.toFixed(2) + " A");
@@ -235,38 +237,36 @@ onValue(ref(db, "compteur/realtime"), snap => {
 
     // COULEURS INTELLIGENTES
     if (power > SEUIL) {
+
         mainCard.className = "card dangerCard";
         powerVal.className = "value high";
-    }
-    else if (power > SEUIL * 0.7) {
+
+    } else if (power > SEUIL * 0.7) {
+
         mainCard.className = "card warningCard";
         powerVal.className = "value medium";
-    }
-    else {
+
+    } else {
+
         mainCard.className = "card normalCard";
         powerVal.className = "value normal";
     }
 
+    // GRAPHIQUE
     chart.data.labels.push(new Date().toLocaleTimeString());
+
     chart.data.datasets[0].data.push(power);
 
     if (chart.data.labels.length > 15) {
+
         chart.data.labels.shift();
         chart.data.datasets[0].data.shift();
     }
 
     chart.update();
 
-    set(ref(db, "deleste"), {
-        courant: cur,
-        tension: volt,
-        puissance: power,
-        consommation: power / 1000
-    });
-
     delestageAuto(power);
 });
-
 // COMMANDES (inchangé)
 function toggle(btn, path) {
     const isOn = btn.classList.contains("on");
