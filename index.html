@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -54,9 +55,17 @@ h1 {
 }
 
 /* ETATS */
-.normalCard { border-left: 5px solid var(--green); }
-.warningCard { border-left: 5px solid var(--orange); }
-.dangerCard { border-left: 5px solid var(--red); }
+.normalCard {
+    border-left: 5px solid var(--green);
+}
+
+.warningCard {
+    border-left: 5px solid var(--orange);
+}
+
+.dangerCard {
+    border-left: 5px solid var(--red);
+}
 
 /* ANIMATION DANGER */
 .dangerCard {
@@ -64,9 +73,17 @@ h1 {
 }
 
 @keyframes pulse {
-    0% { box-shadow: 0 0 0 rgba(220,38,38,0.2); }
-    50% { box-shadow: 0 0 15px rgba(220,38,38,0.4); }
-    100% { box-shadow: 0 0 0 rgba(220,38,38,0.2); }
+    0% {
+        box-shadow: 0 0 0 rgba(220,38,38,0.2);
+    }
+
+    50% {
+        box-shadow: 0 0 15px rgba(220,38,38,0.4);
+    }
+
+    100% {
+        box-shadow: 0 0 0 rgba(220,38,38,0.2);
+    }
 }
 
 /* KPI */
@@ -82,9 +99,17 @@ h1 {
     transition: 0.3s;
 }
 
-.normal { color: var(--green); }
-.medium { color: var(--orange); }
-.high { color: var(--red); }
+.normal {
+    color: var(--green);
+}
+
+.medium {
+    color: var(--orange);
+}
+
+.high {
+    color: var(--red);
+}
 
 /* ===== BOUTONS ===== */
 .kpi-button {
@@ -127,17 +152,44 @@ canvas {
 <h1>SMART CABINE ET DELESTAGE SMART</h1>
 
 <div class="card normalCard" id="mainCard">
-    <div class="kpi-row"><span>Tension :</span><span id="voltVal" class="value normal">-- V</span></div>
-    <div class="kpi-row"><span>Courant :</span><span id="curVal" class="value normal">-- A</span></div>
-    <div class="kpi-row"><span>Puissance :</span><span id="powerVal" class="value normal">-- W</span></div>
+    <div class="kpi-row">
+        <span>Tension :</span>
+        <span id="voltVal" class="value normal">-- V</span>
+    </div>
+
+    <div class="kpi-row">
+        <span>Courant :</span>
+        <span id="curVal" class="value normal">-- A</span>
+    </div>
+
+    <div class="kpi-row">
+        <span>Puissance :</span>
+        <span id="powerVal" class="value normal">-- W</span>
+    </div>
 </div>
 
 <div class="card">
     <h3 style="color: var(--blue)">Commandes Départs</h3>
-    <div class="kpi-row">Départ 1 <button id="btn1" class="kpi-button off">OFF</button></div>
-    <div class="kpi-row">Départ 2 <button id="btn2" class="kpi-button off">OFF</button></div>
-    <div class="kpi-row">Départ 3 <button id="btn3" class="kpi-button off">OFF</button></div>
-    <div class="kpi-row">Départ 4 <button id="btn4" class="kpi-button off">OFF</button></div>
+
+    <div class="kpi-row">
+        Départ 1
+        <button id="btn1" class="kpi-button off">OFF</button>
+    </div>
+
+    <div class="kpi-row">
+        Départ 2
+        <button id="btn2" class="kpi-button off">OFF</button>
+    </div>
+
+    <div class="kpi-row">
+        Départ 3
+        <button id="btn3" class="kpi-button off">OFF</button>
+    </div>
+
+    <div class="kpi-row">
+        Départ 4
+        <button id="btn4" class="kpi-button off">OFF</button>
+    </div>
 </div>
 
 <div class="card">
@@ -147,8 +199,17 @@ canvas {
 </div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-app.js";
-import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-database.js";
+
+import {
+    initializeApp
+} from "https://www.gstatic.com/firebasejs/10.10.0/firebase-app.js";
+
+import {
+    getDatabase,
+    ref,
+    onValue,
+    set
+} from "https://www.gstatic.com/firebasejs/10.10.0/firebase-database.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSy...",
@@ -174,8 +235,10 @@ const btn4 = document.getElementById("btn4");
 // GRAPH
 const chart = new Chart(document.getElementById("chart"), {
     type: "line",
+
     data: {
         labels: [],
+
         datasets: [{
             label: "Puissance",
             data: [],
@@ -190,58 +253,88 @@ const chart = new Chart(document.getElementById("chart"), {
 // VARIABLES
 let currentCommandes = {};
 let lastDelestageTime = 0;
+let latestVoltage = 0;
 
 const SEUIL = 1000;
 const DELAY = 5000;
+const COURANT_PAR_DEPART = 0.6;
 
 // ANIMATION
 function animate(el, val) {
     el.style.opacity = 0;
+
     setTimeout(() => {
         el.innerText = val;
         el.style.opacity = 1;
     }, 150);
 }
 
-// DELESTAGE (inchangé)
-function delestageAuto(power) {
-    const now = Date.now();
-    if (power <= SEUIL) return;
-    if (now - lastDelestageTime < DELAY) return;
+// CALCUL DU COURANT ET DE LA PUISSANCE
+function calculerMesures() {
 
-    const ordre = ["Comm4","Comm3","Comm2","Comm1"];
+    const commandes = [
+        "Comm1",
+        "Comm2",
+        "Comm3",
+        "Comm4"
+    ];
 
-    for (let key of ordre) {
-        if (currentCommandes[key] == 1) {
-            set(ref(db, "commande/" + key), 0);
-            lastDelestageTime = now;
-            break;
-        }
-    }
-}
+    const nombreDepartsActifs = commandes.filter(
+        commande => Number(currentCommandes[commande]) === 1
+    ).length;
 
-// REALTIME
-onValue(ref(db, "deleste"), snap => {
+    // Chaque départ activé ajoute 0,6 A
+const courant = nombreDepartsActifs * COURANT_PAR_DEPART;
 
-    const d = snap.val();
+// Puissance = Tension × Courant
+const puissance = latestVoltage * courant;
 
-    if (!d) return;
+// Attendre 5 secondes avant d'afficher les nouvelles valeurs
+clearTimeout(window.timerMesures);
 
-    let cur = d.courant || 0;
-    let volt = d.tension || 0;
-    let power = d.puissance || 0;
+window.timerMesures = setTimeout(() => {
 
-    animate(voltVal, volt.toFixed(2) + " V");
-    animate(curVal, cur.toFixed(2) + " A");
-    animate(powerVal, power.toFixed(2) + " W");
+    animate(curVal, courant.toFixed(2) + " A");
+    animate(powerVal, puissance.toFixed(2) + " W");
 
-    // COULEURS INTELLIGENTES
-    if (power > SEUIL) {
+    // COULEURS
+    if (puissance > SEUIL) {
 
         mainCard.className = "card dangerCard";
         powerVal.className = "value high";
 
-    } else if (power > SEUIL * 0.7) {
+    } else if (puissance > SEUIL * 0.7) {
+
+        mainCard.className = "card warningCard";
+        powerVal.className = "value medium";
+
+    } else {
+
+        mainCard.className = "card normalCard";
+        powerVal.className = "value normal";
+    }
+
+    // Graphique
+    chart.data.labels.push(new Date().toLocaleTimeString());
+    chart.data.datasets[0].data.push(puissance);
+
+    if (chart.data.labels.length > 15) {
+        chart.data.labels.shift();
+        chart.data.datasets[0].data.shift();
+    }
+
+    chart.update();
+
+    delestageAuto(puissance);
+
+}, 3000);
+    // COULEURS INTELLIGENTES
+    if (puissance > SEUIL) {
+
+        mainCard.className = "card dangerCard";
+        powerVal.className = "value high";
+
+    } else if (puissance > SEUIL * 0.7) {
 
         mainCard.className = "card warningCard";
         powerVal.className = "value medium";
@@ -253,9 +346,11 @@ onValue(ref(db, "deleste"), snap => {
     }
 
     // GRAPHIQUE
-    chart.data.labels.push(new Date().toLocaleTimeString());
+    chart.data.labels.push(
+        new Date().toLocaleTimeString()
+    );
 
-    chart.data.datasets[0].data.push(power);
+    chart.data.datasets[0].data.push(puissance);
 
     if (chart.data.labels.length > 15) {
 
@@ -265,23 +360,98 @@ onValue(ref(db, "deleste"), snap => {
 
     chart.update();
 
-    delestageAuto(power);
-});
-// COMMANDES (inchangé)
-function toggle(btn, path) {
-    const isOn = btn.classList.contains("on");
-    set(ref(db, path), isOn ? 0 : 1);
+    delestageAuto(puissance);
 }
 
-btn1.onclick = () => toggle(btn1, "commande/Comm1");
-btn2.onclick = () => toggle(btn2, "commande/Comm2");
-btn3.onclick = () => toggle(btn3, "commande/Comm3");
-btn4.onclick = () => toggle(btn4, "commande/Comm4");
+// DELESTAGE
+function delestageAuto(power) {
 
-// SYNC
+    const now = Date.now();
+
+    if (power <= SEUIL) return;
+
+    if (now - lastDelestageTime < DELAY) return;
+
+    const ordre = [
+        "Comm4",
+        "Comm3",
+        "Comm2",
+        "Comm1"
+    ];
+
+    for (let key of ordre) {
+
+        if (Number(currentCommandes[key]) === 1) {
+
+            set(
+                ref(db, "commande/" + key),
+                0
+            );
+
+            lastDelestageTime = now;
+
+            break;
+        }
+    }
+}
+
+// TEMPS RÉEL POUR LA TENSION
+onValue(ref(db, "deleste"), snap => {
+
+    const d = snap.val();
+
+    if (!d) {
+
+        latestVoltage = 0;
+
+        animate(voltVal, "0.00 V");
+
+        calculerMesures();
+
+        return;
+    }
+
+    latestVoltage = Number(d.tension) || 0;
+
+    animate(
+        voltVal,
+        latestVoltage.toFixed(2) + " V"
+    );
+
+    calculerMesures();
+});
+
+// COMMANDES
+function toggle(btn, path) {
+
+    const isOn = btn.classList.contains("on");
+
+    set(
+        ref(db, path),
+        isOn ? 0 : 1
+    );
+}
+
+btn1.onclick = () => {
+    toggle(btn1, "commande/Comm1");
+};
+
+btn2.onclick = () => {
+    toggle(btn2, "commande/Comm2");
+};
+
+btn3.onclick = () => {
+    toggle(btn3, "commande/Comm3");
+};
+
+btn4.onclick = () => {
+    toggle(btn4, "commande/Comm4");
+};
+
+// SYNCHRONISATION DES COMMANDES
 onValue(ref(db, "commande"), snap => {
-    const c = snap.val();
-    if (!c) return;
+
+    const c = snap.val() || {};
 
     currentCommandes = c;
 
@@ -289,19 +459,26 @@ onValue(ref(db, "commande"), snap => {
     update(btn2, c.Comm2);
     update(btn3, c.Comm3);
     update(btn4, c.Comm4);
+
+    calculerMesures();
 });
 
 function update(btn, val) {
-    if (val == 1) {
+
+    if (Number(val) === 1) {
+
         btn.classList.add("on");
         btn.classList.remove("off");
         btn.innerText = "ON";
+
     } else {
+
         btn.classList.add("off");
         btn.classList.remove("on");
         btn.innerText = "OFF";
     }
 }
+
 </script>
 
 </body>
